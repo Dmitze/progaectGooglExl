@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Відновлення даних за історією</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 15px; margin:0; padding:0; }
+    .container { max-width: 1120px; margin: 0 auto; background: #f7f7f7; border-radius: 6px; padding: 18px; box-shadow: 0 2px 16px #0002; }
+    h2 { margin-top:0; }
+    label { margin-right:24px; }
+    .btn { margin: 4px 8px 4px 0; padding: 7px 20px; font-size: 15px; border-radius: 5px; border:1px solid #1a73e8; background:#f1f5fc; cursor:pointer;}
+    .btn:active { background:#dbeafe; }
+    .export-bar { margin: 13px 0 24px 0; }
+    .section-title {margin-top: 28px; font-weight: bold; font-size: 17px;}
+    #status { margin: 12px 0 12px 0; color: #205080; min-height:22px;}
+    .pagination { margin: 12px 0; }
+    .pagination button { padding:4px 10px; margin:0 2px; border-radius:3px; border:1px solid #aaa; background:#e9ecef;}
+    .pagination .current { font-weight:bold; background:#dbeafe;}
+    table.preview { border-collapse: collapse; background: #fff; margin-top: 11px; }
+    table.preview td, table.preview th { border: 1px solid #bbb; padding: 5px 7px; font-size: 13px; max-width: 180px; overflow: hidden; text-overflow: ellipsis;}
+    table.preview th { background: #e3e8f0;}
+    #preview, #diff { max-height: 700px; max-width: 1100px; overflow: auto; }
+    .diff-old { background: #fce5cd !important;}
+    .diff-new { background: #d9ead3 !important;}
+    .diff-addr { background: #e7e6e6; font-weight:bold;}
+    .row-num { background: #f2f2f2; color:#878787; font-size:12px;}
+    .col-num-header { background: #f4f8fd; color:#888; font-size:12px;}
+    .sheet-meta {margin-bottom: 7px; color:#555;}
+    .paged-table-info {font-size:13px; color:#555; margin-bottom:4px;}
+    @media (max-width: 1200px) {
+      .container { max-width: 99vw; }
+      #preview, #diff { max-width: 97vw; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Відновлення даних за історією</h2>
+    <div>
+      <label>Лист:
+        <select id="sheet" onchange="updateDates()"></select>
+      </label>
+      <label>Дата/час:
+        <select id="date"></select>
+      </label>
+      <button class="btn" onclick="preview(1)">Показати стан на дату</button>
+      <button class="btn" onclick="showDiff()">Показати зміни</button>
+    </div>
+    <div class="export-bar">
+      <button class="btn" onclick="exportExcel()">Експорт у Excel</button>
+      <button class="btn" onclick="exportCSV()">Експорт у CSV</button>
+    </div>
+    <div id="status"></div>
+    <div id="preview"></div>
+    <div id="pagination"></div>
+    <div id="diff"></div>
+  </div>
+<script>
+  let datesBySheet = {};
+  let currentPreview = [];
+  let currentPage = 1;
+  let pageSize = 30;
+  let totalRows = 0;
+  let totalCols = 0;
+  let tableSheetName = "";
+  let tableDate = "";
+
+  google.script.run.withSuccessHandler(init).getHistoryRestoreData();
+
+  function init(data) {
+    datesBySheet = data.datesBySheet;
+    const sheetSel = document.getElementById('sheet');
+    sheetSel.innerHTML = "";
+    data.sheets.forEach(sh => {
+      const opt = document.createElement('option');
+      opt.value = sh; opt.textContent = sh;
+      sheetSel.appendChild(opt);
+    });
+    updateDates();
+  }
+
+  function updateDates() {
+    const sheet = document.getElementById('sheet').value;
+    const dateSel = document.getElementById('date');
+    dateSel.innerHTML = '';
+    (datesBySheet[sheet] || []).forEach(dt => {
+      const d = new Date(dt);
+      const opt = document.createElement('option');
+      opt.value = d.toISOString();
+      opt.textContent = d.toLocaleString();
+      dateSel.appendChild(opt);
+    });
+    document.getElementById('preview').innerHTML = '';
+    document.getElementById('diff').innerHTML = '';
+    document.getElementById('pagination').innerHTML = '';
+    document.getElementById('status').textContent = '';
+    currentPreview = [];
+    currentPage = 1;
+    tableSheetName = sheet;
+    tableDate = dateSel.value;
+  }
+
+function preview(page) {
+  const sheet = document.getElementById('sheet').value;
+  const date = document.getElementById('date').value;
+  page = page ? page : 1;
+  if (!sheet || !date) return;
+  document.getElementById('status').textContent = 'Завантаження...';
+  document.getElementById('preview').innerHTML = '';
+  document.getElementById('diff').innerHTML = '';
+  document.getElementById('pagination').innerHTML = '';
+  google.script.run.withSuccessHandler(function(obj){
+    currentPreview = obj.preview;
+    totalRows = obj.totalRows;
+    totalCols = obj.totalCols;
+    tableSheetName = sheet;
+    tableDate = date;
+    currentPage = page;
+    document.getElementById('status').textContent = '';
+    renderPreviewTable();
+    renderPagination();
+  }).getSheetPreviewOnDate(sheet, date, page, pageSize);
+}
+
+function renderPreviewTable() {
+  if (!currentPreview || !currentPreview.length) {
+    document.getElementById('preview').innerHTML = '<i>Відсутні дані для перегляду.</i>';
+    return;
+  }
+  let html = `<div class="sheet-meta">Лист: <b>${tableSheetName}</b> | Дата/час: <b>${new Date(tableDate).toLocaleString()}</b></div>`;
+  html += `<div class="paged-table-info">Записи ${((currentPage-1)*pageSize)+1}–${Math.min(currentPage*pageSize,totalRows)} із ${totalRows} (сторінка ${currentPage})</div>`;
+  html += '<div style="overflow:auto"><table class="preview"><tr><th class="row-num">№</th>';
+  for (let c=0; c<totalCols; ++c) html += `<th class="col-num-header">${String.fromCharCode(65+c)}</th>`;
+  html+='</tr>';
+  for(let i=0; i<currentPreview.length; ++i){
+    html += `<tr><td class="row-num">${(currentPage-1)*pageSize+i+1}</td>`;
+    for(let j=0;j<totalCols;++j){
+      let cell = (currentPreview[i][j]!==undefined)?currentPreview[i][j]:"";
+      html += `<td>${cell}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table></div>';
+  document.getElementById('preview').innerHTML = html;
+}
+
+function renderPagination() {
+  const totalPages = Math.ceil(totalRows/pageSize);
+  if(totalPages<=1){document.getElementById('pagination').innerHTML=''; return;}
+  let html = '<div class="pagination">';
+  html += `<button onclick="prevPage()" ${currentPage<=1?"disabled":""}>&lt;</button>`;
+  let start = Math.max(1, currentPage-2), end = Math.min(totalPages, currentPage+2);
+  if (start > 1) { html += `<button onclick="gotoPage(1)">1</button>`; if (start > 2) html += ' ... '; }
+  for(let i=start;i<=end;++i) html+=`<button class="${i===currentPage?"current":""}" onclick="gotoPage(${i})">${i}</button>`;
+  if(end<totalPages){ if (end<totalPages-1) html += ' ... '; html+=`<button onclick="gotoPage(${totalPages})">${totalPages}</button>`; }
+  html += `<button onclick="nextPage()" ${currentPage>=totalPages?"disabled":""}>&gt;</button>`;
+  html += '</div>';
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function prevPage(){ if(currentPage>1) preview(currentPage-1);}
+function nextPage(){ const totalPages=Math.ceil(totalRows/pageSize); if(currentPage<totalPages) preview(currentPage+1);}
+function gotoPage(p){ preview(p); }
+
+function showDiff() {
+  const sheet = document.getElementById('sheet').value;
+  const date = document.getElementById('date').value;
+  if (!sheet || !date) return;
+  document.getElementById('status').textContent = 'Завантаження змін...';
+  document.getElementById('diff').innerHTML = '';
+  google.script.run.withSuccessHandler(function(diff){
+    document.getElementById('status').textContent = '';
+    if (!diff || !diff.length) {
+      document.getElementById('diff').innerHTML = '<b>Відмінностей не знайдено.</b>';
+      return;
+    }
+    let html = `<div class="section-title">Зміни (стан на дату → поточний стан):</div>
+    <div style="overflow:auto"><table class="preview"><tr><th class="diff-addr">Адреса</th><th>Було</th><th>Стало</th></tr>`;
+    diff.forEach(row => {
+      html += `<tr>
+        <td class="diff-addr">${row.addr}</td>
+        <td class="diff-old">${row.oldValue ?? ""}</td>
+        <td class="diff-new">${row.newValue ?? ""}</td>
+      </tr>`;
+    });
+    html += '</table></div>';
+    document.getElementById('diff').innerHTML = html;
+  }).getSheetDiffOnDate(sheet, date);
+}
+
+// Экспорт CSV — только для текущей страницы!
+function exportCSV() {
+  if (!currentPreview || !currentPreview.length) {
+    document.getElementById('status').textContent = 'Перед експортом натисніть "Показати стан на дату".';
+    return;
+  }
+  let csv = currentPreview.map(row => row.map(cell =>
+    `"${(cell||"").toString().replace(/"/g,'""')}"`
+  ).join(",")).join("\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `export_page${currentPage}.csv`;
+  a.textContent = "⬇️ Завантажити CSV";
+  a.style.fontWeight = 'bold';
+  a.onclick = () => { setTimeout(()=>URL.revokeObjectURL(url), 1000); };
+  document.getElementById('status').innerHTML = '';
+  document.getElementById('preview').appendChild(a);
+}
+
+// Экспорт Excel — только для текущей страницы!
+function exportExcel() {
+  if (!currentPreview || !currentPreview.length) {
+    document.getElementById('status').textContent = 'Перед експортом натисніть "Показати стан на дату".';
+    return;
+  }
+  if (typeof XLSX === 'undefined') {
+    if (!window._sheetjsLoading) {
+      window._sheetjsLoading = true;
+      let script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = () => { window._sheetjsLoaded = true; doExportExcel(); };
+      document.body.appendChild(script);
+    } else if (window._sheetjsLoaded) {
+      doExportExcel();
+    }
+  } else {
+    doExportExcel();
+  }
+}
+function doExportExcel() {
+  if (typeof XLSX === 'undefined') {
+    document.getElementById('status').textContent = 'Зачекайте, бібліотека Excel ще підключається...';
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(currentPreview);
+  XLSX.utils.book_append_sheet(wb, ws, `Сторінка_${currentPage}`);
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([wbout], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `export_page${currentPage}.xlsx`;
+  a.textContent = "⬇️ Завантажити Excel";
+  a.style.fontWeight = 'bold';
+  a.onclick = () => { setTimeout(()=>URL.revokeObjectURL(url), 1000); };
+  document.getElementById('status').innerHTML = '';
+  document.getElementById('preview').appendChild(a);
+}
+
+// Управление размером страницы (кол-во строк)
+function changePageSize() {
+  const select = document.getElementById('pageSizeSel');
+  pageSize = +select.value;
+  preview(1);
+}
+window.onload = function() {
+  // Добавить селектор размера страницы если его нет
+  if (!document.getElementById('pageSizeSel')) {
+    let sel = document.createElement('select');
+    sel.id = 'pageSizeSel';
+    [10, 20, 30, 50, 100].forEach(n => {
+      let opt = document.createElement('option');
+      opt.value = n;
+      opt.textContent = n + ' рядків';
+      if (n === pageSize) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = changePageSize;
+    let label = document.createElement('label');
+    label.textContent = "Рядків на сторінці: ";
+    label.appendChild(sel);
+    document.querySelector('.container').insertBefore(label, document.querySelector('.export-bar'));
+  }
+}
+
+function setupLogSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let logSheet = ss.getSheetByName(LOG_SHEET_NAME);
+  if (!logSheet) {
+    logSheet = ss.insertSheet(LOG_SHEET_NAME);
+    const headers = [[
+      "Час зміни",
+      "Користувач",
+      "Аркуш",
+      "Адреса",
+      "Тип дії",
+      "Було",
+      "Стало",
+      "Формула",
+      "Важлива зміна"
+    ]];
+    logSheet.getRange(1, 1, 1, headers[0].length).setValues(headers);
+    logSheet.autoResizeColumns(1, headers[0].length);
+  }
+}
+  function updateDates() {
+    const sheet = document.getElementById('sheet').value;
+    const dateSel = document.getElementById('date');
+    dateSel.innerHTML = '';
+
+    if (datesBySheet[sheet] && datesBySheet[sheet].length > 0) {
+      (datesBySheet[sheet] || []).forEach(dt => {
+        const d = new Date(dt);
+        const opt = document.createElement('option');
+        opt.value = d.toISOString();
+        opt.textContent = d.toLocaleString();
+        dateSel.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = "";
+      opt.textContent = "Немає даних";
+      dateSel.appendChild(opt);
+    }
+
+    document.getElementById('preview').innerHTML = '';
+    document.getElementById('diff').innerHTML = '';
+    document.getElementById('pagination').innerHTML = '';
+    document.getElementById('status').textContent = '';
+    currentPreview = [];
+    currentPage = 1;
+    tableSheetName = sheet;
+    tableDate = dateSel.value;
+  }
+  function init(data) {
+  Logger.log("Полученные данные:", data);
+  datesBySheet = data.datesBySheet;
+  const sheetSel = document.getElementById('sheet');
+  sheetSel.innerHTML = "";
+  data.sheets.forEach(sh => {
+    const opt = document.createElement('option');
+    opt.value = sh; opt.textContent = sh;
+    sheetSel.appendChild(opt);
+  });
+  updateDates();
+}
+</script>
+</body>
+</html>
