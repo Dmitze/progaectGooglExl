@@ -2,6 +2,7 @@
 <html>
 <head>
   <base target="_top">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <meta charset="UTF-8">
   <title>Відновлення даних за історією</title>
   <style>
@@ -46,6 +47,7 @@
       </label>
       <button class="btn" onclick="preview(1)">Показати стан на дату</button>
       <button class="btn" onclick="showDiff()">Показати зміни</button>
+      <button class="btn" id="restoreBtn" onclick="restoreFromLog()" style="background:#b6d7a8;border-color:#388e3c;">Відновити цей стан</button>
     </div>
     <div class="export-bar">
       <button class="btn" onclick="exportExcel()">Експорт у Excel</button>
@@ -56,34 +58,51 @@
     <div id="pagination"></div>
     <div id="diff"></div>
   </div>
+<div>
+  <label>Лог-файл:
+    <select id="logFile"></select>
+  </label>
+  <label>Аркуш для відновлення:
+    <input id="restoreSheetName" type="text" style="width:200px;" placeholder="Введіть назву аркуша">
+  </label>
+  <button class="btn" onclick="restoreFromLogFile()" style="background:#ffe599;border-color:#c27ba0;">Відновити з файлу</button>
+</div>
+<div id="restoreFileStatus"></div>
 <script>
-  let datesBySheet = {};
-  let currentPreview = [];
-  let currentPage = 1;
-  let pageSize = 30;
-  let totalRows = 0;
-  let totalCols = 0;
-  let tableSheetName = "";
-  let tableDate = "";
+let datesBySheet = {};
+let currentPreview = [];
+let currentPage = 1;
+let pageSize = 30;
+let totalRows = 0;
+let totalCols = 0;
+let tableSheetName = "";
+let tableDate = "";
 
-  google.script.run.withSuccessHandler(init).getHistoryRestoreData();
+google.script.run
+  .withSuccessHandler(init)
+  .withFailureHandler(function(e){
+    document.getElementById('status').textContent = 'Помилка завантаження: ' + (e && e.message ? e.message : e);
+  })
+  .getHistoryRestoreData();
 
-  function init(data) {
-    datesBySheet = data.datesBySheet;
-    const sheetSel = document.getElementById('sheet');
-    sheetSel.innerHTML = "";
-    data.sheets.forEach(sh => {
-      const opt = document.createElement('option');
-      opt.value = sh; opt.textContent = sh;
-      sheetSel.appendChild(opt);
-    });
-    updateDates();
-  }
+function init(data) {
+  datesBySheet = data.datesBySheet;
+  const sheetSel = document.getElementById('sheet');
+  sheetSel.innerHTML = "";
+  data.sheets.forEach(sh => {
+    const opt = document.createElement('option');
+    opt.value = sh; opt.textContent = sh;
+    sheetSel.appendChild(opt);
+  });
+  updateDates();
+}
 
-  function updateDates() {
-    const sheet = document.getElementById('sheet').value;
-    const dateSel = document.getElementById('date');
-    dateSel.innerHTML = '';
+function updateDates() {
+  const sheet = document.getElementById('sheet').value;
+  const dateSel = document.getElementById('date');
+  dateSel.innerHTML = '';
+
+  if (datesBySheet[sheet] && datesBySheet[sheet].length > 0) {
     (datesBySheet[sheet] || []).forEach(dt => {
       const d = new Date(dt);
       const opt = document.createElement('option');
@@ -91,15 +110,24 @@
       opt.textContent = d.toLocaleString();
       dateSel.appendChild(opt);
     });
-    document.getElementById('preview').innerHTML = '';
-    document.getElementById('diff').innerHTML = '';
-    document.getElementById('pagination').innerHTML = '';
-    document.getElementById('status').textContent = '';
-    currentPreview = [];
-    currentPage = 1;
-    tableSheetName = sheet;
-    tableDate = dateSel.value;
+    document.getElementById('restoreBtn').disabled = false;
+  } else {
+    const opt = document.createElement('option');
+    opt.value = "";
+    opt.textContent = "Немає даних";
+    dateSel.appendChild(opt);
+    document.getElementById('restoreBtn').disabled = true;
   }
+
+  document.getElementById('preview').innerHTML = '';
+  document.getElementById('diff').innerHTML = '';
+  document.getElementById('pagination').innerHTML = '';
+  document.getElementById('status').textContent = '';
+  currentPreview = [];
+  currentPage = 1;
+  tableSheetName = sheet;
+  tableDate = dateSel.value;
+}
 
 function preview(page) {
   const sheet = document.getElementById('sheet').value;
@@ -110,17 +138,22 @@ function preview(page) {
   document.getElementById('preview').innerHTML = '';
   document.getElementById('diff').innerHTML = '';
   document.getElementById('pagination').innerHTML = '';
-  google.script.run.withSuccessHandler(function(obj){
-    currentPreview = obj.preview;
-    totalRows = obj.totalRows;
-    totalCols = obj.totalCols;
-    tableSheetName = sheet;
-    tableDate = date;
-    currentPage = page;
-    document.getElementById('status').textContent = '';
-    renderPreviewTable();
-    renderPagination();
-  }).getSheetPreviewOnDate(sheet, date, page, pageSize);
+  google.script.run
+    .withSuccessHandler(function(obj){
+      currentPreview = obj.preview;
+      totalRows = obj.totalRows;
+      totalCols = obj.totalCols;
+      tableSheetName = sheet;
+      tableDate = date;
+      currentPage = page;
+      document.getElementById('status').textContent = '';
+      renderPreviewTable();
+      renderPagination();
+    })
+    .withFailureHandler(function(e){
+      document.getElementById('status').textContent = 'Помилка: ' + (e && e.message ? e.message : e);
+    })
+    .getSheetPreviewOnDate(sheet, date, page, pageSize);
 }
 
 function renderPreviewTable() {
@@ -169,24 +202,51 @@ function showDiff() {
   if (!sheet || !date) return;
   document.getElementById('status').textContent = 'Завантаження змін...';
   document.getElementById('diff').innerHTML = '';
-  google.script.run.withSuccessHandler(function(diff){
-    document.getElementById('status').textContent = '';
-    if (!diff || !diff.length) {
-      document.getElementById('diff').innerHTML = '<b>Відмінностей не знайдено.</b>';
-      return;
-    }
-    let html = `<div class="section-title">Зміни (стан на дату → поточний стан):</div>
-    <div style="overflow:auto"><table class="preview"><tr><th class="diff-addr">Адреса</th><th>Було</th><th>Стало</th></tr>`;
-    diff.forEach(row => {
-      html += `<tr>
-        <td class="diff-addr">${row.addr}</td>
-        <td class="diff-old">${row.oldValue ?? ""}</td>
-        <td class="diff-new">${row.newValue ?? ""}</td>
-      </tr>`;
-    });
-    html += '</table></div>';
-    document.getElementById('diff').innerHTML = html;
-  }).getSheetDiffOnDate(sheet, date);
+  google.script.run
+    .withSuccessHandler(function(diff){
+      document.getElementById('status').textContent = '';
+      if (!diff || !diff.length) {
+        document.getElementById('diff').innerHTML = '<b>Відмінностей не знайдено.</b>';
+        return;
+      }
+      let html = `<div class="section-title">Зміни (стан на дату → поточний стан):</div>
+      <div style="overflow:auto"><table class="preview"><tr><th class="diff-addr">Адреса</th><th>Було</th><th>Стало</th></tr>`;
+      diff.forEach(row => {
+        html += `<tr>
+          <td class="diff-addr">${row.addr}</td>
+          <td class="diff-old">${row.oldValue ?? ""}</td>
+          <td class="diff-new">${row.newValue ?? ""}</td>
+        </tr>`;
+      });
+      html += '</table></div>';
+      document.getElementById('diff').innerHTML = html;
+    })
+    .withFailureHandler(function(e){
+      document.getElementById('status').textContent = 'Помилка: ' + (e && e.message ? e.message : e);
+    })
+    .getSheetDiffOnDate(sheet, date);
+}
+
+// --- Restore button --- //
+function restoreFromLog() {
+  const sheet = document.getElementById('sheet').value;
+  const date = document.getElementById('date').value;
+  if (!sheet || !date || date === "Немає даних" || date === "") {
+    document.getElementById('status').textContent = 'Оберіть коректну дату для відновлення.';
+    return;
+  }
+  document.getElementById('status').textContent = 'Відновлення...';
+  document.getElementById('restoreBtn').disabled = true;
+  google.script.run
+    .withSuccessHandler(function(msg){
+      document.getElementById('status').textContent = msg;
+      setTimeout(()=>{document.getElementById('restoreBtn').disabled = false;}, 2000);
+    })
+    .withFailureHandler(function(e){
+      document.getElementById('status').textContent = 'Помилка: ' + (e && e.message ? e.message : e);
+      setTimeout(()=>{document.getElementById('restoreBtn').disabled = false;}, 2000);
+    })
+    .restoreHistoryDialogAction(sheet, date);
 }
 
 // Экспорт CSV — только для текущей страницы!
@@ -211,23 +271,22 @@ function exportCSV() {
 
 // Экспорт Excel — только для текущей страницы!
 function exportExcel() {
-  if (!currentPreview || !currentPreview.length) {
-    document.getElementById('status').textContent = 'Перед експортом натисніть "Показати стан на дату".';
+  if (!window.XLSX) {
+    alert('SheetJS не загружен!');
     return;
   }
-  if (typeof XLSX === 'undefined') {
-    if (!window._sheetjsLoading) {
-      window._sheetjsLoading = true;
-      let script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-      script.onload = () => { window._sheetjsLoaded = true; doExportExcel(); };
-      document.body.appendChild(script);
-    } else if (window._sheetjsLoaded) {
-      doExportExcel();
-    }
-  } else {
-    doExportExcel();
-  }
+  // Пример: currentPreview — твой двумерный массив данных
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(currentPreview);
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([wbout], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `export.xlsx`;
+  a.textContent = "⬇️ Завантажити Excel";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
 }
 function doExportExcel() {
   if (typeof XLSX === 'undefined') {
@@ -275,67 +334,42 @@ window.onload = function() {
   }
 }
 
-function setupLogSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let logSheet = ss.getSheetByName(LOG_SHEET_NAME);
-  if (!logSheet) {
-    logSheet = ss.insertSheet(LOG_SHEET_NAME);
-    const headers = [[
-      "Час зміни",
-      "Користувач",
-      "Аркуш",
-      "Адреса",
-      "Тип дії",
-      "Було",
-      "Стало",
-      "Формула",
-      "Важлива зміна"
-    ]];
-    logSheet.getRange(1, 1, 1, headers[0].length).setValues(headers);
-    logSheet.autoResizeColumns(1, headers[0].length);
-  }
-}
-  function updateDates() {
-    const sheet = document.getElementById('sheet').value;
-    const dateSel = document.getElementById('date');
-    dateSel.innerHTML = '';
-
-    if (datesBySheet[sheet] && datesBySheet[sheet].length > 0) {
-      (datesBySheet[sheet] || []).forEach(dt => {
-        const d = new Date(dt);
-        const opt = document.createElement('option');
-        opt.value = d.toISOString();
-        opt.textContent = d.toLocaleString();
-        dateSel.appendChild(opt);
-      });
-    } else {
+function fillLogFiles() {
+  google.script.run.withSuccessHandler(function(list){
+    const sel = document.getElementById('logFile');
+    sel.innerHTML = '';
+    if (!list.length) {
       const opt = document.createElement('option');
-      opt.value = "";
-      opt.textContent = "Немає даних";
-      dateSel.appendChild(opt);
+      opt.value = '';
+      opt.textContent = 'Файлів не знайдено';
+      sel.appendChild(opt);
+    } else {
+      list.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.name + ' (' + new Date(f.date).toLocaleString() + ')';
+        sel.appendChild(opt);
+      });
     }
-
-    document.getElementById('preview').innerHTML = '';
-    document.getElementById('diff').innerHTML = '';
-    document.getElementById('pagination').innerHTML = '';
-    document.getElementById('status').textContent = '';
-    currentPreview = [];
-    currentPage = 1;
-    tableSheetName = sheet;
-    tableDate = dateSel.value;
-  }
-  function init(data) {
-  Logger.log("Полученные данные:", data);
-  datesBySheet = data.datesBySheet;
-  const sheetSel = document.getElementById('sheet');
-  sheetSel.innerHTML = "";
-  data.sheets.forEach(sh => {
-    const opt = document.createElement('option');
-    opt.value = sh; opt.textContent = sh;
-    sheetSel.appendChild(opt);
-  });
-  updateDates();
+  }).getLogFilesList();
 }
+fillLogFiles();
+
+function restoreFromLogFile() {
+  const fileId = document.getElementById('logFile').value;
+  const sheetName = document.getElementById('restoreSheetName').value.trim();
+  if (!fileId || !sheetName) {
+    document.getElementById('restoreFileStatus').textContent = 'Оберіть файл і введіть назву аркуша!';
+    return;
+  }
+  document.getElementById('restoreFileStatus').textContent = 'Відновлення...';
+  google.script.run.withSuccessHandler(function(msg){
+    document.getElementById('restoreFileStatus').textContent = msg;
+  }).withFailureHandler(function(e){
+    document.getElementById('restoreFileStatus').textContent = 'Помилка: ' + (e && e.message ? e.message : e);
+  }).restoreSheetFromLogFile(fileId, sheetName);
+}
+
 </script>
 </body>
 </html>
