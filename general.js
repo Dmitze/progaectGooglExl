@@ -20,6 +20,7 @@ function onOpen() {
     .addItem("Відновити дані за історією", "showRestoreHistoryDialog")
     .addItem("Пошук по історії змін", "showHistorySearchDialog")
     .addItem("Відновити аркуш з логу", "showRestoreFromLogDialog") // Додано нову кнопку!
+    .addItem("Показати історію змін", "showHistorySearchDialog") // ← Новий пункт: теж открывает форму
     .addSeparator()
     .addItem("Оновити дашборд", "createOrUpdateDashboard")
     .addItem("Додати коментар до комірки", "showAddCommentDialog")
@@ -31,6 +32,8 @@ function onOpen() {
     // Нові пункти: експорт і архівація логів
     .addItem("Експорт логу у Excel", "exportLogSheetAsExcel")
     .addItem("Експорт логу у CSV", "exportLogSheetAsCSV")
+    .addItem("Експорт історії у CSV", "exportHistoryToCSV") // ← Новый экспорт всей истории
+    .addItem("Аналітика активності", "showHistoryAnalytics") // ← Новая аналитика
     .addItem("Архівація логів", "archiveLogHistory")
     .addItem("Створити тригер на архівацію", "createDailyArchiveTrigger")
     .addItem("Видалити старі бекапи", "cleanupOldBackups");
@@ -38,6 +41,9 @@ function onOpen() {
   menu.addToUi();
 
   setupLogSheet();
+
+  // Подключаем дополнительное меню для поиска
+  addHistorySearchMenu(); // <-- Эта функция из файла history_search.js
 }
 
 /**
