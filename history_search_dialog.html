@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Пошук по історії змін</title>
+  <base target="_top">
+  <style>
+    :root {
+      --main-bg: #f6f9fc;
+      --container-bg: #fff;
+      --accent: #1976d2;
+      --accent-light: #e3effc;
+      --accent-dark: #174ea6;
+      --admin: #ffe599;
+      --admin-border: #d9a700;
+      --danger: #f8d7da;
+      --success: #d4edda;
+      --table-head: #e8eeff;
+      --pagination-bg: #e9ecef;
+      --pagination-active: #dbeafe;
+      --input-focus: #c3e0fd;
+      --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    html, body { height: 100%; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--main-bg); margin:0; min-height:100vh;}
+    .container {
+      max-width: 1200px;
+      margin: 32px auto;
+      background: var(--container-bg);
+      border-radius: 16px;
+      box-shadow: 0 6px 32px #1756a033, 0 1.5px 6px #0001;
+      padding: 38px 28px 30px 28px;
+      animation: popIn .8s cubic-bezier(.42,0,.58,1.0);
+      position: relative;
+      overflow: hidden;
+    }
+    @keyframes popIn {
+      0% { opacity: 0; transform: translateY(50px) scale(.96);}
+      100% { opacity: 1; transform: none;}
+    }
+    h2 {
+      margin-top: 0; color: var(--accent-dark);
+      font-size: 2.1rem;
+      letter-spacing: .01em;
+      animation: fadeInDown .7s .15s backwards;
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-16px);}
+      to { opacity: 1; transform: none;}
+    }
+    .filters {
+      display: flex; flex-wrap: wrap; gap: 18px 32px; margin-bottom: 21px;
+      animation: fadeIn .6s .22s backwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0;}
+      to { opacity: 1;}
+    }
+    .filters label {
+      font-weight: 500; display: flex; flex-direction: column; font-size: 15px;
+      min-width: 180px; transition: color var(--transition);
+    }
+    .filters input, .filters select {
+      font-size: 15px;
+      padding: 7px 10px;
+      border-radius: 7px;
+      border: 1.3px solid #b4b9be;
+      margin-top: 3px;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+      background: #fff;
+      outline: none;
+    }
+    .filters input:focus,
+    .filters select:focus {
+      border-color: var(--accent);
+      background: var(--input-focus);
+      box-shadow: 0 1px 6px #1976d22d;
+    }
+    .btn {
+      padding: 10px 27px;
+      font-size: 15px;
+      border-radius: 7px;
+      border:1.7px solid var(--accent);
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      cursor:pointer;
+      margin-right: 12px;
+      font-weight: 500;
+      transition: background var(--transition), color var(--transition), border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+      box-shadow: 0 2px 10px #1976d214;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:active {
+      background: var(--pagination-active);
+      color: var(--accent);
+      transform: translateY(2px) scale(.97);
+    }
+    .btn:hover, .btn:focus-visible {
+      background: #d0e6fa;
+      color: #1053a3;
+      border-color: #1053a3;
+      box-shadow: 0 4px 16px #1976d222, 0 1.5px 6px #0001;
+    }
+    .btn-admin {
+      background: var(--admin);
+      border-color: var(--admin-border);
+      color: #8a6d00;
+      box-shadow: 0 1px 8px #d9a70022;
+    }
+    .btn-admin:hover, .btn-admin:focus-visible {
+      background: #fff5c4;
+      color: #b88c00;
+      border-color: #b88c00;
+    }
+    .status {
+      margin: 14px 0 10px 0;
+      color: var(--accent-dark);
+      min-height:22px;
+      font-size: 1.05em;
+      letter-spacing: .01em;
+      transition: color var(--transition);
+      animation: fadeIn .6s .28s backwards;
+    }
+    .status.error { color: #a94442; background: var(--danger); border-radius: 4px; padding: 3px 12px;}
+    .status.success { color: #256029; background: var(--success);}
+    .table-responsive {
+      overflow: auto;
+      max-height: 541px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      box-shadow: 0 1.5px 6px #1756a01e;
+      animation: fadeIn .7s .34s backwards;
+      background: #f7faff;
+      transition: box-shadow var(--transition);
+    }
+    table.results {
+      border-collapse: collapse;
+      width: 100%;
+      background: #f9f9f9;
+      min-width: 830px;
+      transition: background var(--transition);
+    }
+    table.results th, table.results td {
+      border: 1px solid #c3c6ca;
+      padding: 7px 8px;
+      font-size: 14px;
+      transition: background var(--transition);
+      user-select: text;
+    }
+    table.results th {
+      background: var(--table-head);
+      position: sticky; top: 0;
+      z-index: 2;
+      font-weight: 600;
+      letter-spacing: .01em;
+      text-shadow: 0 1px 1px #fff8;
+    }
+    table.results tr {
+      transition: background .14s;
+    }
+    table.results tr:hover td {
+      background: #e3f2fd;
+      transition: background .12s;
+    }
+    .row-highlight {
+      background: #d9ead3 !important;
+      animation: highlightRow .7s linear;
+    }
+    @keyframes highlightRow {
+      0% { background: #fffde7;}
+      100% { background: #d9ead3;}
+    }
+    .pagination {
+      margin: 10px 0 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 2px;
+      animation: fadeIn .7s .4s backwards;
+    }
+    .pagination button {
+      padding: 5px 12px;
+      margin: 0 2px;
+      border-radius: 4px;
+      border: 1.2px solid #aaa;
+      background: var(--pagination-bg);
+      color: #444;
+      cursor: pointer;
+      font-size: 15px;
+      min-width: 36px;
+      font-weight: 500;
+      transition: background var(--transition), color var(--transition), border-color var(--transition), transform var(--transition);
+    }
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pagination .current {
+      font-weight: bold;
+      background: var(--pagination-active);
+      color: var(--accent-dark);
+      border-color: var(--accent-dark);
+      box-shadow: 0 1.5px 6px #1976d222;
+      transform: scale(1.12);
+      z-index: 1;
+    }
+    .admin-section {
+      margin: 22px 0 0 0;
+      background: #fffbe6;
+      border-radius: 13px;
+      padding: 17px 17px 15px 17px;
+      border: 1.7px solid var(--admin);
+      box-shadow: 0 1px 8px #d9a70022;
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn .6s .38s backwards;
+    }
+    .admin-section h3 {
+      margin-top: 0;
+      color: #b88c00;
+      font-size: 1.22em;
+      letter-spacing: .01em;
+    }
+    .analytics-table {
+      margin-top: 12px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px #b88c0033;
+      background: #fff6d7;
+      animation: fadeIn .9s .44s backwards;
+    }
+    .analytics-table th, .analytics-table td {
+      font-size: 13px;
+      padding: 6px 9px;
+      border: 1px solid #e5d07a;
+    }
+    @media (max-width: 800px) {
+      .container { max-width: 99vw; padding: 12px;}
+      .filters { flex-direction: column; gap: 10px 0;}
+      table.results, .analytics-table { min-width: 600px;}
+    }
+    /* Сладкий fade-in для всех кнопок */
+    .btn, .btn-admin { opacity: 0; animation: fadeInBtn .8s .09s backwards;}
+    .btn:nth-child(2) { animation-delay: .17s;}
+    .btn:nth-child(3) { animation-delay: .26s;}
+    .btn-admin { animation-delay: .34s;}
+    @keyframes fadeInBtn {
+      from { opacity: 0; transform: translateY(10px);}
+      to { opacity: 1; transform: none;}
+    }
+    /* Tooltip для кнопок */
+    .btn[title]:hover:after {
+      content: attr(title);
+      position: absolute;
+      left: 50%; bottom: 110%;
+      transform: translateX(-50%);
+      background: #222;
+      color: #fff;
+      padding: 4px 11px;
+      border-radius: 6px;
+      font-size: 13px;
+      white-space: nowrap;
+      z-index: 99;
+      opacity: 0.9;
+      pointer-events: none;
+      filter: drop-shadow(0 2px 6px #0006);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Пошук по історії змін</h2>
+    <form id="searchForm" onsubmit="event.preventDefault(); searchLogs();">
+      <div class="filters">
+        <label>Ключове слово
+          <input type="text" id="searchValue" placeholder="Текст або число">
+        </label>
+        <label>Аркуш
+          <select id="searchSheet"><option value="">Всі</option></select>
+        </label>
+        <label>Користувач
+          <select id="searchUser"><option value="">Всі</option></select>
+        </label>
+        <label>Дія
+          <select id="searchAction">
+            <option value="">Всі</option>
+            <option value="додавання">Додавання</option>
+            <option value="зміна">Зміна</option>
+            <option value="видалення">Видалення</option>
+          </select>
+        </label>
+        <label>З дати
+          <input type="date" id="searchDateFrom">
+        </label>
+        <label>До дати
+          <input type="date" id="searchDateTo">
+        </label>
+      </div>
+      <div style="margin-bottom:16px;">
+        <button type="submit" class="btn">Пошук</button>
+        <button type="button" class="btn" onclick="resetSearch()">Очистити</button>
+        <button type="button" class="btn" onclick="exportResultsCSV()">Експортувати у CSV</button>
+        <span id="adminActions" style="display:none;">
+          <button type="button" class="btn btn-admin" onclick="showAnalytics()">Аналітика</button>
+          <button type="button" class="btn btn-admin" onclick="restoreRow()" title="Відновити стан листа на момент запису">Відновити</button>
+        </span>
+      </div>
+    </form>
+
+    <div class="status" id="status"></div>
+    <div class="table-responsive"><table class="results" id="resultsTable"></table></div>
+    <div class="pagination" id="pagination"></div>
+    
+    <div class="admin-section" id="analyticsSection" style="display:none;">
+      <h3>Аналітика</h3>
+      <div id="analyticsContent"></div>
+      <button class="btn btn-admin" onclick="closeAnalytics()">Закрити</button>
+    </div>
+  </div>
+<script>
+// --- Константи для пагінації
+const ROWS_PER_PAGE = 30;
+
+// --- Глобальні змінні
+let allLogs = [];        // Всі логи
+let filteredLogs = [];   // Відфільтровані логи
+let currentPage = 1;
+let totalPages = 1;
+let isAdmin = false;     // Тут можна підключити перевірку на адміна
+
+// --- DOM Ready
+document.addEventListener('DOMContentLoaded', initDialog);
+
+function initDialog() {
+  showStatus('Завантаження даних…');
+  google.script.run.withSuccessHandler(function(logs){
+    allLogs = logs || [];
+    fillFilters(allLogs);
+    resetSearch(); // Показати всі логи
+    // Перевірити права адміна
+    google.script.run.withSuccessHandler(function(admin){
+      isAdmin = !!admin;
+      document.getElementById('adminActions').style.display = isAdmin ? '' : 'none';
+    }).isUserAdmin && google.script.run.isUserAdmin();
+  }).getAllHistoryLogs();
+}
+
+// --- Заповнення фільтрів
+function fillFilters(logs) {
+  const sheets = new Set(), users = new Set();
+  logs.forEach(row => {
+    sheets.add(row.sheet);
+    users.add(row.user);
+  });
+  const sheetSel = document.getElementById('searchSheet');
+  const userSel = document.getElementById('searchUser');
+  sheetSel.innerHTML = '<option value="">Всі</option>';
+  Array.from(sheets).sort().forEach(s => {
+    if (s) sheetSel.innerHTML += `<option>${escapeHtml(s)}</option>`;
+  });
+  userSel.innerHTML = '<option value="">Всі</option>';
+  Array.from(users).sort().forEach(u => {
+    if (u) userSel.innerHTML += `<option>${escapeHtml(u)}</option>`;
+  });
+}
+
+// --- Основний пошук
+function searchLogs() {
+  const value = document.getElementById('searchValue').value.trim().toLowerCase();
+  const sheet = document.getElementById('searchSheet').value;
+  const user = document.getElementById('searchUser').value;
+  const action = document.getElementById('searchAction').value;
+  const dateFrom = document.getElementById('searchDateFrom').value;
+  const dateTo = document.getElementById('searchDateTo').value;
+
+  filteredLogs = allLogs.filter(row => {
+    if (sheet && row.sheet !== sheet) return false;
+    if (user && row.user !== user) return false;
+    if (action && row.action !== action) return false;
+    if (value && !Object.values(row).join(' ').toLowerCase().includes(value)) return false;
+    if (dateFrom && row.date < dateFrom) return false;
+    if (dateTo && row.date > dateTo) return false;
+    return true;
+  });
+
+  currentPage = 1;
+  showStatus(`Знайдено: ${filteredLogs.length} записів`);
+  renderTable();
+}
+
+// --- Очистити фільтри
+function resetSearch() {
+  document.getElementById('searchValue').value = '';
+  document.getElementById('searchSheet').value = '';
+  document.getElementById('searchUser').value = '';
+  document.getElementById('searchAction').value = '';
+  document.getElementById('searchDateFrom').value = '';
+  document.getElementById('searchDateTo').value = '';
+  filteredLogs = allLogs.slice();
+  currentPage = 1;
+  showStatus(`Знайдено: ${filteredLogs.length} записів`);
+  renderTable();
+}
+
+// --- Відображення статусу
+function showStatus(msg, type) {
+  const st = document.getElementById('status');
+  st.textContent = msg || '';
+  st.className = 'status' + (type ? ` ${type}` : '');
+}
+
+// --- Відображення таблиці результатів з пагінацією
+function renderTable() {
+  const table = document.getElementById('resultsTable');
+  table.innerHTML = '';
+  if (!filteredLogs.length) {
+    table.innerHTML = '<tr><td colspan="99" style="text-align:center;color:#888">Записів не знайдено</td></tr>';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+  // Заголовки
+  const headers = ['Дата/час', 'Аркуш', 'Користувач', 'Дія', 'Адреса', 'Було', 'Стало'];
+  const th = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+  table.innerHTML = `<tr>${th}</tr>`;
+
+  // Пагінація
+  totalPages = Math.ceil(filteredLogs.length / ROWS_PER_PAGE);
+  const from = (currentPage-1)*ROWS_PER_PAGE;
+  const to = Math.min(filteredLogs.length, from+ROWS_PER_PAGE);
+  for(let i=from; i<to; ++i) {
+    const row = filteredLogs[i];
+    table.innerHTML += `<tr data-idx="${i}">
+      <td>${escapeHtml(row.dateTime || row.date)}</td>
+      <td>${escapeHtml(row.sheet)}</td>
+      <td>${escapeHtml(row.user)}</td>
+      <td>${escapeHtml(row.action)}</td>
+      <td>${escapeHtml(row.address)}</td>
+      <td>${escapeHtml(row.oldValue)}</td>
+      <td>${escapeHtml(row.newValue)}</td>
+    </tr>`;
+  }
+  // Підсвітити рядок при кліку
+  Array.from(table.querySelectorAll('tr[data-idx]')).forEach(tr => {
+    tr.onclick = function() {
+      table.querySelectorAll('.row-highlight').forEach(e=>e.classList.remove('row-highlight'));
+      this.classList.add('row-highlight');
+      showStatus('Рядок виділено для швидкого перегляду.', 'success');
+    };
+  });
+  renderPagination();
+}
+
+// --- Пагінація
+function renderPagination() {
+  const pag = document.getElementById('pagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let html = '';
+  html += `<button onclick="goPage(1)" ${currentPage===1?'disabled':''}>&lt;&lt;</button>`;
+  html += `<button onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>&lt;</button>`;
+  for(let i=1; i<=totalPages; ++i) {
+    if (i===1 || i===totalPages || Math.abs(i-currentPage)<=2) {
+      html += `<button onclick="goPage(${i})" class="${i===currentPage?'current':''}">${i}</button>`;
+    } else if (i===2 && currentPage>4) {
+      html += '<span style="padding:0 5px;color:#888;">…</span>';
+    } else if (i===totalPages-1 && currentPage<totalPages-3) {
+      html += '<span style="padding:0 5px;color:#888;">…</span>';
+    }
+  }
+  html += `<button onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>&gt;</button>`;
+  html += `<button onclick="goPage(${totalPages})" ${currentPage===totalPages?'disabled':''}>&gt;&gt;</button>`;
+  pag.innerHTML = html;
+}
+function goPage(n) {
+  if (n<1 || n>totalPages) return;
+  currentPage = n;
+  renderTable();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// --- Експорт у CSV
+function exportResultsCSV() {
+  if (!filteredLogs.length) { showStatus('Немає даних для експорту!', 'error'); return; }
+  const headers = ['Дата/час', 'Аркуш', 'Користувач', 'Дія', 'Адреса', 'Було', 'Стало'];
+  const rows = [headers].concat(filteredLogs.map(r=>[
+    r.dateTime || r.date, r.sheet, r.user, r.action, r.address, r.oldValue, r.newValue
+  ]));
+  const csv = rows.map(row => row.map(cell =>
+    `"${(cell||'').toString().replace(/"/g,'""')}"`
+  ).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'history_search_export.csv';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},600);
+  showStatus('CSV-файл сформовано. Завантаження розпочато.', 'success');
+}
+
+// --- Аналітика для адмінів
+function showAnalytics() {
+  showStatus('Генерація аналітики...');
+  google.script.run.withSuccessHandler(function(stats){
+    const sect = document.getElementById('analyticsSection');
+    const cont = document.getElementById('analyticsContent');
+    sect.style.display = '';
+    cont.innerHTML = '';
+    // Приклад — кількість змін по користувачам, аркушам, дням
+    cont.innerHTML += '<b>Кількість змін по користувачах:</b>';
+    cont.appendChild(makeAnalyticsTable(stats.users));
+    cont.innerHTML += '<b>Кількість змін по аркушах:</b>';
+    cont.appendChild(makeAnalyticsTable(stats.sheets));
+    cont.innerHTML += '<b>Кількість змін по днях:</b>';
+    cont.appendChild(makeAnalyticsTable(stats.days));
+    showStatus('Аналітику згенеровано.', 'success');
+  }).getHistoryAnalytics();
+}
+function makeAnalyticsTable(obj) {
+  const tbl = document.createElement('table');
+  tbl.className = 'analytics-table';
+  tbl.innerHTML = '<tr><th>Назва</th><th>Кількість</th></tr>' +
+    Object.entries(obj).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${v}</td></tr>`).join('');
+  return tbl;
+}
+function closeAnalytics() {
+  document.getElementById('analyticsSection').style.display = 'none';
+}
+
+// --- Відновлення стану (тільки для адміна)
+function restoreRow() {
+  const table = document.getElementById('resultsTable');
+  const tr = table.querySelector('.row-highlight');
+  if (!tr) { showStatus('Оберіть рядок для відновлення!', 'error'); return; }
+  const idx = +tr.getAttribute('data-idx');
+  const log = filteredLogs[idx];
+  if (!log) { showStatus('Помилка: не знайдено лог для відновлення.', 'error'); return; }
+  if (!confirm('Ви дійсно бажаєте відновити стан листа на цей момент?\nЦя дія може змінити дані!')) return;
+  showStatus('Відновлення...');
+  google.script.run.withSuccessHandler(function(msg){
+    showStatus(msg, 'success');
+  }).withFailureHandler(function(e){
+    showStatus('Помилка: ' + (e && e.message ? e.message : e), 'error');
+  }).restoreSheetFromLog(log);
+}
+
+// --- Дрібні утиліти
+function escapeHtml(str) {
+  return (str||'').toString().replace(/[<>&"']/g, function(m){
+    return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[m];
+  });
+}
+</script>
+</body>
+</html>
