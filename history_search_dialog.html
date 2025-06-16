@@ -330,36 +330,41 @@ let currentPage = 1;
 let totalPages = 1;
 let isAdmin = false;     // Тут можна підключити перевірку на адміна
 
-// --- DOM Ready
-document.addEventListener('DOMContentLoaded', initDialog);
 
-function initDialog() {
-  showStatus('Завантаження даних…');
-  google.script.run.withSuccessHandler(function(logs){
-    allLogs = logs || [];
-    fillFilters(allLogs);
-    resetSearch(); // Показати всі логи
-    // Перевірити права адміна
-    google.script.run.withSuccessHandler(function(admin){
-      isAdmin = !!admin;
-      document.getElementById('adminActions').style.display = isAdmin ? '' : 'none';
-    }).isUserAdmin && google.script.run.isUserAdmin();
-  }).getAllHistoryLogs();
-}
-
-// --- Заповнення фільтрів
 function fillFilters(logs) {
+  console.log('Полученные логи:', logs); // Отладочное сообщение
+
   const sheets = new Set(), users = new Set();
   logs.forEach(row => {
     sheets.add(row.sheet);
     users.add(row.user);
   });
+
+  console.log('Уникальные аркуши:', Array.from(sheets)); // Отладочное сообщение
+  console.log('Уникальные пользователи:', Array.from(users)); // Отладочное сообщение
+
   const sheetSel = document.getElementById('searchSheet');
   const userSel = document.getElementById('searchUser');
+
   sheetSel.innerHTML = '<option value="">Всі</option>';
   Array.from(sheets).sort().forEach(s => {
     if (s) sheetSel.innerHTML += `<option>${escapeHtml(s)}</option>`;
   });
+
+  userSel.innerHTML = '<option value="">Всі</option>';
+  Array.from(users).sort().forEach(u => {
+    if (u) userSel.innerHTML += `<option>${escapeHtml(u)}</option>`;
+  });
+}
+
+  const sheetSel = document.getElementById('searchSheet');
+  const userSel = document.getElementById('searchUser');
+
+  sheetSel.innerHTML = '<option value="">Всі</option>';
+  Array.from(sheets).sort().forEach(s => {
+    if (s) sheetSel.innerHTML += `<option>${escapeHtml(s)}</option>`;
+  });
+
   userSel.innerHTML = '<option value="">Всі</option>';
   Array.from(users).sort().forEach(u => {
     if (u) userSel.innerHTML += `<option>${escapeHtml(u)}</option>`;
