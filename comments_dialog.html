@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>🕒 Останні коментарі</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ... (оставьте ваши стили как есть) ... */
+    body { font-family: 'Montserrat', Arial, sans-serif; background: linear-gradient(110deg, #e3f0ff 0%, #f9fafc 100%); color: #263238; margin: 0; padding: 0;}
+    .container { max-width: 700px; margin: 30px auto 20px auto; padding: 32px 36px 16px 36px; background: rgba(255,255,255,0.98); border-radius: 22px; box-shadow: 0 10px 36px 0 rgba(52,152,219,0.13), 0 2px 4px 0 rgba(52,152,219,0.09); animation: fadeIn 0.8s; position: relative;}
+    h1 { font-size: 2em; color: #1976d2; text-align: center; margin-top: 0; margin-bottom: 22px; font-weight: 700; letter-spacing: 1px; animation: slideDown 0.6s;}
+    .search-bar { display: flex; gap: 10px; margin-bottom: 18px; align-items: center; flex-wrap: wrap;}
+    .search-bar input[type="text"] { flex: 2 1 180px; padding: 9px 15px; border: 1px solid #b4c7e7; border-radius: 8px; font-size: 1em; background: #f7faff; transition: border 0.2s;}
+    .search-bar input[type="text"]:focus { border: 1.5px solid #1976d2; outline: none; background: #fff;}
+    .search-bar select { flex: 1 1 100px; padding: 8px 12px; border: 1px solid #b4c7e7; border-radius: 8px; background: #f7faff; font-size: 1em;}
+    .search-bar label { font-size: 0.98em; opacity: 0.8; margin: 0 6px 0 0;}
+    .search-bar button { background: #1976d2; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-weight: 600; font-size: 1em; cursor: pointer; margin-left: 5px; transition: background 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px rgba(25,118,210,0.10);}
+    .search-bar button:hover { background: #1253a2;}
+    .comments-list { margin-top: 10px; margin-bottom: 10px; animation: fadeInUp 0.8s;}
+    .comment-card { background: #f6fafd; border-radius: 12px; box-shadow: 0 2px 10px rgba(25,118,210,0.07); margin-bottom: 19px; padding: 18px 18px 15px 18px; position: relative; transition: box-shadow 0.2s, transform 0.2s; animation: popIn 0.6s;}
+    .comment-card:hover { box-shadow: 0 6px 24px 0 rgba(25,118,210,0.15); transform: translateY(-2px) scale(1.02);}
+    .comm-meta { display: flex; align-items: center; font-size: 0.97em; color: #1976d2; margin-bottom: 8px;}
+    .comm-meta .author { font-weight: 700; margin-right: 9px;}
+    .comm-meta .resolved { color: #36b37e; font-size: 0.97em; margin-left: 8px; background: #eafaf1; padding: 2px 7px; border-radius: 8px; font-weight: 600; letter-spacing: 0.5px;}
+    .comm-meta .datetime { color: #8696a7; margin-left: auto; font-size: 0.95em; font-weight: 500;}
+    .comm-meta .cellref { margin-left: 10px; background: #e3f2fd; color: #1976d2; padding: 2px 10px; border-radius: 7px; font-size: 0.93em; font-weight: 600;}
+    .comm-content { font-size: 1.13em; margin-bottom: 8px; color: #263238; word-break: break-word; white-space: pre-wrap; line-height: 1.48; min-height: 24px; transition: background 0.2s;}
+    .comm-content .mention { background: #e0f7fa; color: #0097a7; font-weight: 700; border-radius: 4px; padding: 0 3px; margin: 0 1px;}
+    .comm-content .tag { background: #ffe082; color: #b28900; border-radius: 4px; font-weight: 600; padding: 0 3px; margin: 0 1px;}
+    .comm-actions { display: flex; gap: 10px; align-items: center; margin-top: 7px; font-size: 1em;}
+    .like-btn { color: #ff4081; background: #fff; border: 1px solid #ffd6e2; border-radius: 50%; width: 29px; height: 29px; font-size: 1.25em; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.18s, box-shadow 0.18s; box-shadow: 0 1px 5px rgba(255,64,129,0.07);}
+    .like-btn.liked { background: #ff4081; color: #fff; border: none;}
+    .like-count { font-size: 1em; color: #ff4081; font-weight: 600; margin-left: 2px; user-select: none;}
+    .resolved-badge { color: #36b37e; background: #eafaf1; border-radius: 6px; font-size: 0.97em; padding: 2px 10px; font-weight: 600; margin-left: 10px; letter-spacing: 0.5px;}
+    .goto-btn { background: #fff3e0; color: #ff9800; border: none; border-radius: 8px; padding: 6px 12px; font-size: 0.96em; font-weight: 600; cursor: pointer; margin-left: auto; transition: background 0.15s;}
+    .goto-btn:hover { background: #ffecb3; color: #ff9800;}
+    .tags { display: flex; gap: 8px; margin-top: 2px; flex-wrap: wrap;}
+    .tag-label { background: #ffe082; color: #b28900; border-radius: 4px; font-size: 0.98em; font-weight: 600; padding: 2px 7px; margin-right: 0; margin-top: 2px;}
+    .no-comments { text-align: center; color: #b0bfcf; font-size: 1.17em; margin-top: 70px; opacity: 0.7; animation: fadeIn 0.8s;}
+    .close-btn { position: absolute; top: 20px; right: 26px; background: #fff; color: #1976d2; border: 1.5px solid #e3f2fd; border-radius: 50%; width: 36px; height: 36px; font-size: 1.5em; cursor: pointer; box-shadow: 0 1px 5px rgba(25,118,210,0.11); transition: background 0.2s, color 0.2s; z-index: 999;}
+    .close-btn:hover { background: #1976d2; color: #fff;}
+    @keyframes fadeIn { 0% {opacity: 0;} 100% {opacity: 1;} }
+    @keyframes fadeInUp { 0% {opacity: 0; transform: translateY(24px);} 100% {opacity: 1; transform: none;} }
+    @keyframes slideDown { 0% { opacity: 0; transform: translateY(-24px);} 100% {opacity: 1; transform: none;} }
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.96);} 100% {opacity: 1; transform: scale(1);} }
+    @media (max-width: 700px) { .container { padding: 8px 2vw; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="close-btn" onclick="google.script.host.close();" title="Закрити">&times;</button>
+    <h1>Останні коментарі</h1>
+    <div class="search-bar">
+      <input type="text" id="searchQuery" placeholder="🔍 Пошук по тексту, тегу чи автору…">
+      <select id="filterTag">
+        <option value="">Всі теги</option>
+      </select>
+      <select id="filterResolved">
+        <option value="">Всі</option>
+        <option value="open">Відкриті</option>
+        <option value="resolved">Вирішені</option>
+      </select>
+      <button onclick="applyFilters()">Фільтр</button>
+      <button onclick="clearFilters()" style="background:#fff;color:#1976d2;border:1px solid #e3f2fd;">Скинути</button>
+    </div>
+    <div class="comments-list" id="commentsList"></div>
+    <div class="no-comments" id="noComments" style="display:none;">Поки що немає коментарів.</div>
+  </div>
+  <script>
+    // === Анімація появи ===
+    document.body.style.opacity = 0;
+    setTimeout(() => { document.body.style.transition = "opacity 0.7s"; document.body.style.opacity = 1; }, 18);
+
+    // === Дані ===
+    let allComments = [];
+
+    // === Завантажити коментарі ===
+    google.script.run.withSuccessHandler(function(comments){
+      allComments = comments || [];
+      renderTagOptions(allComments);
+      renderComments(allComments);
+    }).getRecentComments(40);
+
+    // === Відобразити теги у фільтрі ===
+    function renderTagOptions(comments) {
+      const allTags = new Set();
+      comments.forEach(c => (c.tags||[]).forEach(tag => allTags.add(tag)));
+      const filter = document.getElementById('filterTag');
+      filter.innerHTML = '<option value="">Всі теги</option>' +
+        Array.from(allTags).map(tag => `<option value="${tag}">#${tag}</option>`).join('');
+    }
+
+    // === Рендер коментарів ===
+    function renderComments(comments) {
+      const list = document.getElementById('commentsList');
+      const none = document.getElementById('noComments');
+      list.innerHTML = "";
+      if (!comments.length) {
+        none.style.display = '';
+        return;
+      } else {
+        none.style.display = 'none';
+      }
+      comments.forEach(c => {
+        list.appendChild(renderCommentCard(c));
+      });
+    }
+
+    // === Окремий коментар ===
+    function renderCommentCard(c) {
+      const card = document.createElement('div');
+      card.className = 'comment-card';
+
+      // --- Верхня панель ---
+      const meta = document.createElement('div');
+      meta.className = 'comm-meta';
+      meta.innerHTML =
+        `<span class="author">${escapeHtml(c.author||'')}</span>
+         <span class="cellref" title="Аркуш: ${escapeHtml(c.sheet||'')}">${escapeHtml(c.cell||'')}</span>
+         ${c.resolved==='yes'||c.resolved==='Так'?'<span class="resolved">Вирішено</span>':''}
+         <span class="datetime">${escapeHtml(formatDateTime(c.datetime))}</span>`;
+      card.appendChild(meta);
+
+      // --- Текст ---
+      const content = document.createElement('div');
+      content.className = 'comm-content';
+      content.innerHTML = highlightMentionsAndTags(escapeHtml(c.text||''), c.mentions, c.tags);
+      card.appendChild(content);
+
+      // --- Теги (знизу) ---
+      if (c.tags && c.tags.length) {
+        const tags = document.createElement('div');
+        tags.className = 'tags';
+        tags.innerHTML = c.tags.map(tag => `<span class="tag-label">#${escapeHtml(tag)}</span>`).join('');
+        card.appendChild(tags);
+      }
+
+      // --- Дії ---
+      const actions = document.createElement('div');
+      actions.className = 'comm-actions';
+
+      // Like
+      const likeBtn = document.createElement('button');
+      likeBtn.className = 'like-btn' + (Array.isArray(c.likes) && c.likes.includes(currentUser()) ? ' liked' : '');
+      likeBtn.title = "Лайк";
+      likeBtn.innerHTML = "&#10084;";
+      likeBtn.onclick = function() {
+        if (likeBtn.classList.contains('liked')) return;
+        likeBtn.disabled = true;
+        google.script.run.withSuccessHandler(function(res){
+          if(res && res.success){
+            likeBtn.classList.add('liked');
+            likeCount.textContent = res.likes;
+          }
+          likeBtn.disabled = false;
+        }).likeComment(c.id);
+      };
+      actions.appendChild(likeBtn);
+
+      // Like count
+      const likeCount = document.createElement('span');
+      likeCount.className = 'like-count';
+      likeCount.textContent = Array.isArray(c.likes) ? c.likes.length : 0;
+      actions.appendChild(likeCount);
+
+      // Перейти до комірки
+      const gotoBtn = document.createElement('button');
+      gotoBtn.className = 'goto-btn';
+      gotoBtn.title = "Виділити комірку";
+      gotoBtn.innerHTML = "До комірки";
+      gotoBtn.onclick = function(){
+        google.script.run.selectSheetAndCell(c.sheet, c.cell);
+      };
+      actions.appendChild(gotoBtn);
+
+      card.appendChild(actions);
+
+      return card;
+    }
+
+    // === Хайлайт @mentions і #tags у тексті ===
+    function highlightMentionsAndTags(text, mentions, tags) {
+      let html = text;
+      if (Array.isArray(mentions)) {
+        mentions.forEach(m => {
+          html = html.replace(new RegExp('@'+escapeRegExp(m),'g'), `<span class="mention">@${escapeHtml(m)}</span>`);
+        });
+      }
+      if (Array.isArray(tags)) {
+        tags.forEach(t => {
+          html = html.replace(new RegExp('#'+escapeRegExp(t),'g'), `<span class="tag">#${escapeHtml(t)}</span>`);
+        });
+      }
+      return html;
+    }
+
+    // === Пошук і фільтр ===
+    function applyFilters() {
+      let query = document.getElementById('searchQuery').value.trim().toLowerCase();
+      let tag = document.getElementById('filterTag').value;
+      let resolved = document.getElementById('filterResolved').value;
+      let filtered = allComments.filter(c => {
+        let textMatch = !query || (c.text && c.text.toLowerCase().includes(query));
+        let tagMatch = !tag || (c.tags && c.tags.includes(tag));
+        let resolvedMatch = !resolved ||
+          (resolved === "open" && c.resolved !== "yes" && c.resolved !== "Так") ||
+          (resolved === "resolved" && (c.resolved === "yes" || c.resolved === "Так"));
+        return textMatch && tagMatch && resolvedMatch;
+      });
+      renderComments(filtered);
+    }
+    function clearFilters() {
+      document.getElementById('searchQuery').value = "";
+      document.getElementById('filterTag').value = "";
+      document.getElementById('filterResolved').value = "";
+      renderComments(allComments);
+    }
+
+    // === Допоміжні ===
+    function escapeHtml(str) {
+      return (str||'').replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      });
+    }
+    function escapeRegExp(str) {
+      return (str||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    function formatDateTime(dt) {
+      if (!dt) return '';
+      try {
+        let d = new Date(dt);
+        if (isNaN(d.getTime())) return dt;
+        let day = d.getDate().toString().padStart(2,'0');
+        let mon = (d.getMonth()+1).toString().padStart(2,'0');
+        let year = d.getFullYear();
+        let h = d.getHours().toString().padStart(2,'0');
+        let m = d.getMinutes().toString().padStart(2,'0');
+        return `${day}.${mon}.${year} ${h}:${m}`;
+      } catch { return dt; }
+    }
+    // Дізнатися поточного користувача (email або hash)
+    function currentUser() {
+      // Якщо Apps Script не повертає email, використовуй унікальний fingerprint (анонімний)
+      return google.script ? google.script.host.origin || "" : "";
+    }
+  </script>
+</body>
+</html>
