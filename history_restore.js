@@ -1,4 +1,5 @@
 
+
 // === Диалог восстановления по истории ===
 function showRestoreHistoryDialog() {
   const html = HtmlService.createHtmlOutputFromFile('history_restore_dialog')
