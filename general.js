@@ -27,7 +27,11 @@ function onOpen() {
     .addItem("Переглянути коментарі", "showCommentsDialog")
     .addSeparator()
     .addItem("Перевірити орфографію/формати", "runValidation")
-    .addItem("Створити публічний звіт (копію)", "createPublicReport")
+    .addSeparator()
+    .addItem("Показати публічний звіт (вікно)", "showPublicReportDialog")
+    .addItem("Створити публічний звіт", "createPublicReport")
+    .addItem("Тест: Створити демо-звіт", "testPublicReport")
+    .addItem("Дебаг: Перевірити дані для звіту", "debugPublicReportData")
     .addSeparator()
     // Нові пункти: експорт і архівація логів
     .addItem("Експорт логу у Excel", "exportLogSheetAsExcel")
