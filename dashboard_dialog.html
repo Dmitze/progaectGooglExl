@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>📊 Дашборд</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script> 
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    canvas {
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+<h2>📊 Дашборд активності</h2>
+
+<canvas id="userChart" width="600" height="200"></canvas>
+<canvas id="sheetChart" width="600" height="200"></canvas>
+<canvas id="dailyChart" width="600" height="200"></canvas>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    google.script.run.withSuccessHandler(function(stats) {
+      if (!stats || !stats.total) {
+        alert("Немає даних для аналітики");
+        return;
+      }
+      drawUserChart(stats.userStats);
+      drawSheetChart(stats.sheetStats);
+      drawDailyChart(stats.dailyStats);
+    }).withFailureHandler(function(e) {
+      console.error("Помилка завантаження даних:", e);
+      document.body.innerHTML += `<div style="color:red;">Помилка: ${e}</div>`;
+    }).getDashboardStats();
+  });
+
+  function drawUserChart(data) {
+    const ctx = document.getElementById('userChart').getContext('2d');
+    const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(x => x[0]),
+        datasets: [{
+          label: 'Кількість змін',
+          data: sorted.map(x => x[1]),
+          backgroundColor: '#1976d2'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Топ користувачів' }
+        }
+      }
+    });
+  }
+
+  function drawSheetChart(data) {
+    const ctx = document.getElementById('sheetChart').getContext('2d');
+    const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: sorted.map(x => x[0]),
+        datasets: [{
+          label: 'Активність по аркушах',
+          data: sorted.map(x => x[1]),
+          backgroundColor: ['#1976d2', '#64b5f6', '#90caf9', '#e3f2fd', '#bbdefb']
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: 'Топ аркушів' }
+        }
+      }
+    });
+  }
+
+  function drawDailyChart(data) {
+    const ctx = document.getElementById('dailyChart').getContext('2d');
+    const labels = data.map(x => x.date);
+    const values = data.map(x => x.count);
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Кількість змін',
+          data: values,
+          borderColor: '#1976d2',
+          tension: 0.2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: 'Активність за останні 7 днів' }
+        }
+      }
+    });
+  }
+</script>
+
+</body>
+</html>
