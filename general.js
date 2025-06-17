@@ -25,6 +25,7 @@ function onOpen() {
     .addItem("Оновити дашборд", "createOrUpdateDashboard")
     .addItem("Додати коментар до комірки", "showAddCommentDialog")
     .addItem("Переглянути коментарі", "showCommentsDialog")
+    .addItem("Останні коментарі", "showRecentCommentsDialog")
     .addSeparator()
     .addItem("Перевірити орфографію/формати", "runValidation")
     .addSeparator()
