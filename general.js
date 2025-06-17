@@ -56,6 +56,13 @@ function showRestoreFromLogDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, "Відновлення аркуша з логу");
 }
 
+function showDashboardDialog() {
+  const html = HtmlService.createHtmlOutputFromFile('dashboard_dialog')
+    .setWidth(900)
+    .setHeight(700);
+  SpreadsheetApp.getUi().showModalDialog(html, '📊 Дашборд активності');
+}
+
 // === Основна перевірка змін ===
 function checkChanges() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -66,8 +73,9 @@ function checkChanges() {
     const dataRange = sheet.getDataRange();
     const values = dataRange.getValues();
     if (!Array.isArray(values)) return;
-    const currentHash = JSON.stringify(values);
 
+    // Хранение хэша данных
+    const currentHash = JSON.stringify(values);
     const storedHashKey = `prevDataHash_${sheetName}`;
     const storedValuesKey = `prevValues_${sheetName}`;
     const storedHash = props.getProperty(storedHashKey);
@@ -80,7 +88,7 @@ function checkChanges() {
       oldValues = values.map(row => row.map(() => null));
     }
 
-    // Логування змін значень
+    // Логирование изменений
     if (
       storedHash &&
       storedHash !== currentHash &&
@@ -93,7 +101,7 @@ function checkChanges() {
       logChanges(sheet, oldValues, values);
     }
 
-    // Логування додавання/видалення рядків
+    // Логирование добавления/удаления строк и столбцов
     if (
       Array.isArray(oldValues) &&
       Array.isArray(values) &&
@@ -103,7 +111,7 @@ function checkChanges() {
       logRowOrColumnAction(sheet, type, oldValues.length, values.length);
     }
 
-    // Логування додавання/видалення стовпців
+    // Логирование добавления/удаления столбцов
     if (
       Array.isArray(oldValues) && Array.isArray(values) &&
       oldValues.length > 0 && values.length > 0 &&
@@ -258,4 +266,56 @@ function setupLogSheet() {
     logSheet.getRange(1, 1, 1, headers[0].length).setValues(headers);
     logSheet.autoResizeColumns(1, headers[0].length);
   }
+}
+
+
+function getAllHistoryLogs() {
+  const logs = google.script.run.withSuccessHandler(function(logs){
+    if (!logs || !logs.length) {
+      showStatus('Немає записів для пошуку', 'error');
+      return [];
+    }
+    return logs;
+  }).getAllHistoryLogs();
+}
+
+function exportHistoryToCSV() {
+  const logs = getAllHistoryLogs();
+  if (!logs.length) {
+    showStatus('Немає даних для експорту!', 'error');
+    return;
+  }
+
+  const headers = ['Дата/час', 'Аркуш', 'Користувач', 'Дія', 'Адреса', 'Було', 'Стало'];
+  const rows = [headers].concat(
+    logs.map(r => [
+      r.dateTime || r.date, r.sheet, r.user, r.action, r.address, r.oldValue, r.newValue
+    ])
+  );
+  const csv = rows.map(row => row.map(cell =>
+    `"${(cell||'').toString().replace(/"/g,'""')}"`
+  ).join(',')).join('\r\n');
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'history_search_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},600);
+  showStatus('CSV-файл сформовано. Завантаження розпочато.', 'success');
+}
+
+function getHistoryAnalytics() {
+  const logs = getAllHistoryLogs();
+  const users = {};
+  const sheets = {};
+  const days = {};
+  logs.forEach(log => {
+    if (log.user) users[log.user] = (users[log.user] || 0) + 1;
+    if (log.sheet) sheets[log.sheet] = (sheets[log.sheet] || 0) + 1;
+    if (log.date) days[log.date] = (days[log.date] || 0) + 1;
+  });
+  return { users, sheets, days };
 }
