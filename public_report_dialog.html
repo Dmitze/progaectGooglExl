@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Публічний звіт – Аналітика</title>
+  <!-- Google Fonts for modern look -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Chart.js for graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Montserrat', Arial, sans-serif;
+      background: linear-gradient(120deg, #f1f8ff 0%, #e3e9f2 100%);
+      color: #263238;
+      margin: 0;
+      padding: 0;
+      min-width: 400px;
+    }
+    .container {
+      max-width: 850px;
+      margin: 30px auto 30px auto;
+      padding: 32px 32px 24px 32px;
+      background: rgba(255,255,255,0.98);
+      border-radius: 24px;
+      box-shadow: 0 10px 32px 0 rgba(52,152,219,0.12), 0 2px 4px 0 rgba(52,152,219,0.06);
+      animation: fadeIn 1s;
+      position: relative;
+    }
+    h1, h2, h3 {
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #1976d2;
+      letter-spacing: 1px;
+    }
+    h1 {
+      font-size: 2.1em;
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 24px;
+      animation: slideDown 0.6s;
+    }
+    .stat-grid {
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin: 28px 0 30px 0;
+    }
+    .stat-card {
+      flex: 1 1 180px;
+      min-width: 130px;
+      background: #e3f2fd;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(25,118,210,0.08);
+      padding: 20px 16px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: popIn 0.6s;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 6px 24px rgba(25,118,210,0.18);
+    }
+    .stat-title {
+      font-size: 1em;
+      color: #1976d2;
+      margin-bottom: 7px;
+      opacity: 0.89;
+    }
+    .stat-value {
+      font-size: 2.1em;
+      font-weight: 700;
+      color: #263238;
+      letter-spacing: 2px;
+      transition: color 0.3s;
+    }
+    .section {
+      margin-bottom: 22px;
+      animation: fadeInUp 0.8s;
+    }
+    .table-box {
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 10px;
+      font-size: 1em;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(25,118,210,0.07);
+      animation: fadeIn 1s;
+    }
+    th, td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e3e7f0;
+      text-align: left;
+    }
+    th {
+      background: #e3f2fd;
+      color: #1976d2;
+      font-size: 1em;
+      font-weight: 700;
+      border-radius: 8px 8px 0 0;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .note, .desc, .contact {
+      background: #fff9e0;
+      border-left: 5px solid #ffd600;
+      padding: 12px 18px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      font-size: 1em;
+      color: #666;
+      animation: fadeInUp 1s;
+    }
+    .contact {
+      background: #e0f7fa;
+      border-left: 5px solid #00bcd4;
+      color: #1976d2;
+    }
+    .chart-block {
+      margin: 28px 0 16px 0;
+      background: #f8fafc;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(25,118,210,0.07);
+      padding: 24px;
+      animation: fadeInUp 1s;
+    }
+    .chart-title {
+      margin-bottom: 8px;
+      font-size: 1.13em;
+      font-weight: 700;
+      color: #1976d2;
+    }
+    @keyframes fadeIn { 0% {opacity: 0;} 100% {opacity: 1;} }
+    @keyframes fadeInUp { 0% {opacity: 0; transform: translateY(24px);} 100% {opacity: 1; transform: none;} }
+    @keyframes slideDown { 0% { opacity: 0; transform: translateY(-24px);} 100% {opacity: 1; transform: none;} }
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.9);} 100% {opacity: 1; transform: scale(1);} }
+    ::-webkit-scrollbar { height: 8px; background: #e3f2fd; border-radius: 8px;}
+    ::-webkit-scrollbar-thumb { background: #bbdefb; border-radius: 8px;}
+    .close-btn {
+      position: absolute; top: 20px; right: 30px;
+      background: #fff; color: #1976d2;
+      border: 1px solid #e3f2fd;
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      font-size: 1.5em;
+      cursor: pointer;
+      box-shadow: 0 1px 5px rgba(25,118,210,0.10);
+      transition: background 0.2s, color 0.2s;
+      z-index: 999;
+    }
+    .close-btn:hover {
+      background: #1976d2;
+      color: #fff;
+    }
+    @media (max-width: 700px) {
+      .container { padding: 8px 4vw; }
+      .stat-grid { flex-direction: column; gap: 12px; }
+      .chart-block { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="close-btn" onclick="google.script.host.close();" title="Закрити">&times;</button>
+    <h1>Публічний звіт: Аналітика</h1>
+
+    <!-- Динамічна статистика -->
+    <div class="stat-grid" id="summaryStats">
+      <!-- JS вставить картки -->
+    </div>
+
+    <!-- Графік змін -->
+    <div class="chart-block">
+      <div class="chart-title">Графік змін за останні 14 днів</div>
+      <canvas id="dailyChart" style="width: 100%; max-width: 700px; height: 220px;"></canvas>
+    </div>
+
+    <!-- Топ аркушів -->
+    <div class="section">
+      <h2>Топ аркушів</h2>
+      <div class="table-box">
+        <table id="topSheetsTable">
+          <thead><tr><th>Аркуш</th><th>Кількість змін</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Типи змін -->
+    <div class="section">
+      <h2>Типи змін</h2>
+      <div class="table-box">
+        <table id="actionsTable">
+          <thead><tr><th>Тип</th><th>Кількість</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Останні зміни -->
+    <div class="section">
+      <h2>Останні зміни (без ідентифікаторів)</h2>
+      <div class="table-box">
+        <table id="lastChangesTable">
+          <thead><tr>
+            <th>Дата</th><th>Аркуш</th><th>Дія</th><th>Адреса</th><th>Було</th><th>Стало</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Опис -->
+    <div class="desc" id="descBlock"></div>
+    <!-- Контакти -->
+    <div class="contact" id="contactBlock"></div>
+    <!-- Примітки -->
+    <div class="note" id="noteBlock"></div>
+  </div>
+  <script>
+    // --- Анімація появи ---
+    document.body.style.opacity = 0;
+    setTimeout(() => { document.body.style.transition = "opacity 1s"; document.body.style.opacity = 1; }, 20);
+
+    // --- Головний рендер ---
+    google.script.run.withSuccessHandler(renderReport).buildPublicReport();
+
+    function renderReport(report) {
+      // 1. Summary — картки
+      const stats = report.summary.filter(arr => arr.length === 2 && arr[0] && arr[1]);
+      const statGrid = document.getElementById('summaryStats');
+      statGrid.innerHTML = stats.map(s => `
+        <div class="stat-card">
+          <div class="stat-title">${s[0]}</div>
+          <div class="stat-value">${s[1]}</div>
+        </div>
+      `).join('');
+
+      // 2. Графік змін
+      drawDailyChart(report.chartData);
+
+      // 3. Топ аркушів
+      fillTable('topSheetsTable', report.topSheets.map(([sheet, count]) => [sheet, count]));
+
+      // 4. Типи змін
+      fillTable('actionsTable', report.actions.map(([type, count]) => [type, count]));
+
+      // 5. Останні зміни
+      fillTable('lastChangesTable', report.lastChanges);
+
+      // 6. Опис/контакти/примітки
+      document.getElementById('descBlock').innerHTML =
+        (report.description || []).map(r => r[0]).join('<br>');
+      document.getElementById('contactBlock').innerHTML =
+        (report.description || []).slice(2).map(r => r[0]).join('<br>');
+      document.getElementById('noteBlock').innerHTML =
+        (report.notes || []).map(r => r[0]).join('<br>');
+    }
+
+    function fillTable(tableId, rows) {
+      const body = document.getElementById(tableId).querySelector('tbody');
+      body.innerHTML = rows.map(row =>
+        `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+      ).join('');
+    }
+
+    function drawDailyChart(data) {
+      const ctx = document.getElementById('dailyChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(r => r[0]),
+          datasets: [{
+            label: 'Кількість змін',
+            data: data.map(r => r[1]),
+            backgroundColor: 'rgba(25, 118, 210, 0.10)',
+            borderColor: '#1976d2',
+            borderWidth: 3,
+            pointBackgroundColor: '#1976d2',
+            pointRadius: 4,
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: false }
+          },
+          scales: {
+            x: { ticks: { color: '#1976d2', font: {weight:'bold'} } },
+            y: { beginAtZero: true, ticks: { color: '#1976d2' } }
+          },
+          animation: {
+            duration: 1200,
+            easing: 'easeOutQuart'
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
