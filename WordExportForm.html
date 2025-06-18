@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: sans-serif; }
+      .block { margin-bottom: 15px; }
+      label { display: block; margin-bottom: 2px; }
+      table.preview { border-collapse: collapse; font-size: 0.95em; }
+      table.preview td, table.preview th { border: 1px solid #aaa; padding: 2px 5px; }
+    </style>
+  </head>
+  <body>
+    <h3>Генератор Word-звіту</h3>
+
+    <div class="block">
+      <label>Начальник:</label>
+      <input id="boss" type="text" style="width: 90%;" value="">
+    </div>
+    <div class="block">
+      <label>Дата:</label>
+      <input id="date" type="date" style="width: 40%;">
+      <label>Наказ:</label>
+      <input id="order" type="text" style="width: 90%;">
+    </div>
+    <div class="block">
+      <label>Заголовок звіту:</label>
+      <input id="title" type="text" style="width: 90%;" value="">
+    </div>
+    <div class="block">
+      <label>Опис (пояснення):</label>
+      <textarea id="description" style="width: 95%; height: 40px;"></textarea>
+    </div>
+
+    <div class="block" id="tablesBlock">
+      <label>Таблиці (лист + діапазон):</label>
+      <div id="tablesList"></div>
+      <button type="button" onclick="addTableRow()">+ Додати таблицю</button>
+    </div>
+
+    <button onclick="exportReport()" style="font-size:1.1em;">Сформувати Word</button>
+    <div id="status" style="margin-top:15px;"></div>
+
+    <script>
+      let sheetNames = [];
+      function addTableRow(sheet='', range='') {
+        const idx = document.querySelectorAll('.tableRow').length;
+        const div = document.createElement('div');
+        div.className = 'tableRow';
+        div.innerHTML = `
+          <select class="sheetSel">${sheetNames.map(n => `<option value="${n}" ${n===sheet?'selected':''}>${n}</option>`).join('')}</select>
+          <input type="text" class="rangeInput" style="width:70px;" value="${range||'A1:B2'}">
+          <button type="button" onclick="this.parentElement.remove()">🗑️</button>
+          <button type="button" onclick="showPreview(this)">👁️</button>
+          <div class="previewArea"></div>
+        `;
+        document.getElementById('tablesList').appendChild(div);
+      }
+
+      function showPreview(btn) {
+        const row = btn.parentElement;
+        const sheet = row.querySelector('.sheetSel').value;
+        const range = row.querySelector('.rangeInput').value;
+        row.querySelector('.previewArea').innerHTML = '...';
+        google.script.run.withSuccessHandler(data => {
+          if (!data.length) { row.querySelector('.previewArea').innerHTML = '<i>порожньо</i>'; return; }
+          let html = '<table class="preview"><tr>' +
+            data[0].map(h => `<th>${h}</th>`).join('') + '</tr>';
+          for (let i=1; i<data.length; ++i)
+            html += '<tr>' + data[i].map(c => `<td>${c}</td>`).join('') + '</tr>';
+          html += '</table>';
+          row.querySelector('.previewArea').innerHTML = html;
+        }).getPreviewData(sheet, range);
+      }
+
+      function exportReport() {
+        const header = {
+          boss: document.getElementById('boss').value,
+          date: document.getElementById('date').value,
+          order: document.getElementById('order').value,
+        };
+        const title = document.getElementById('title').value;
+        const description = document.getElementById('description').value;
+        const tables = Array.from(document.querySelectorAll('.tableRow')).map(row => ({
+          sheet: row.querySelector('.sheetSel').value,
+          range: row.querySelector('.rangeInput').value,
+        }));
+        if (!tables.length) { document.getElementById('status').innerHTML = 'Додайте хоча б одну таблицю!'; return; }
+        document.getElementById('status').innerHTML = '⏳ Формуємо...';
+        google.script.run
+          .withSuccessHandler(url => {
+            document.getElementById('status').innerHTML =
+              `<b>✅ Word-файл створено!</b> <a href="${url}" target="_blank">Завантажити</a>`;
+          })
+          .withFailureHandler(e => {
+            document.getElementById('status').innerHTML =
+              `<span style="color:red;">❌ ${e.message || e}</span>`;
+          })
+          .generateWordReport({ header, title, description, tables });
+      }
+
+      // Инициализация: получить листы и добавить одну таблицу по умолчанию
+      google.script.run.withSuccessHandler(function(names){
+        sheetNames = names;
+        if (sheetNames.length) addTableRow(sheetNames[0], 'A1:B2');
+      }).getSheetNames();
+    </script>
+  </body>
+</html>
